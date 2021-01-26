@@ -3,6 +3,7 @@ import pygame
 import numpy as np
 
 UNIT_SIZE = 30
+WALL_COLOR = pygame.Color(0, 0, 128)
 
 
 class Pacman:
@@ -19,13 +20,17 @@ class Pacman:
         self.LEFT = False
         self.UP = False
         self.DOWN = False
+
         self.moving = True
+        self.alive = True
+
         self.score = 0
         self.game_map = game_map
-        self.spawn()
         self.image = image
         self.current_image = 1
-        self.alive = True
+        self.mode = 'normal'
+
+        self.spawn()
         self.rect = self.image[1].get_rect(
             center=(self.cur_location_on_grid[0] * UNIT_SIZE + 15, self.cur_location_on_grid[1] * UNIT_SIZE + 15))
 
@@ -44,11 +49,18 @@ class Pacman:
         elif self.DOWN:
             self.rect.y += self.velocity_y
 
-    def transform_image(self, direction):
-        pass
-
-    def check_collision(self, ghost_rect):
-        pass
+    def eat_cherry(self, cherry_rects):
+        """
+        eat a cherry and become super
+        :param cherry_rects: cherry rectangles
+        :return: new cherry rectangles
+        """
+        for cherry_rect in cherry_rects:
+            if pygame.rect.Rect.colliderect(self.rect, cherry_rect):
+                self.mode = 'eat ghost'
+                self.score += 500
+                cherry_rects.remove(cherry_rect)
+        return cherry_rects
 
     def get_pixel_ahead(self, ahead=1):
         xy_ahead_a = []
@@ -66,6 +78,14 @@ class Pacman:
             xy_ahead_a = (self.rect.bottomright[0], self.rect.bottomright[1] + ahead)
             xy_ahead_b = (self.rect.bottomleft[0], self.rect.bottomleft[1] + ahead)
         return xy_ahead_a, xy_ahead_b
+
+    def movement_restrictions(self):
+        xy_ahead_a, xy_ahead_b = self.get_pixel_ahead()
+        color_ahead_a = self.game_window.get_at(xy_ahead_a)
+        color_ahead_b = self.game_window.get_at(xy_ahead_b)
+        # if both color are channel, then moving is true, else its false
+        if color_ahead_a == WALL_COLOR or color_ahead_b == WALL_COLOR:
+            self.moving = False
 
     def spawn(self):
         """
@@ -88,13 +108,14 @@ class Pacman:
                         return coin_rects
         return coin_rects
 
-    def is_alive(self, ghost_rect):
+    def is_alive(self, ghost_rects):
         """
         :param ghost_rect: a list of ghost rectangles to be looped through to check if collides with pacman
         :return: nothing
         """
-        if pygame.rect.Rect.colliderect(self.rect, ghost_rect):
-            self.alive = False
+        for ghost_rect in ghost_rects:
+            if pygame.rect.Rect.colliderect(self.rect, ghost_rect):
+                self.alive = False
 
     def draw(self):
         self.game_window.blit(self.image[self.current_image], self.rect)

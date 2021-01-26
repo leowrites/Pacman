@@ -1,5 +1,6 @@
 import pygame
 from pathfinding.core.grid import Grid
+import time
 
 pygame.font.init()
 
@@ -28,7 +29,16 @@ def load_images_pacman():
 
 def load_images_ghost():
     INKY = pygame.transform.smoothscale(pygame.image.load("assets/inky.png"), (20, 20))
-    return INKY
+    PINKY = pygame.transform.smoothscale(pygame.image.load("assets/pinky.png"), (20, 20))
+    BLINKY = pygame.transform.smoothscale(pygame.image.load("assets/blinky.png"), (20, 20))
+    CLYDE = pygame.transform.smoothscale(pygame.image.load("assets/clyde.png"), (20, 20))
+    IMAGES = {
+        'inky': INKY,
+        'pinky': PINKY,
+        'blinky': BLINKY,
+        'clyde': CLYDE
+    }
+    return IMAGES
 
 
 def load_images_coin():
@@ -36,12 +46,32 @@ def load_images_coin():
     return COIN_IMAGE
 
 
+def load_images_cherry():
+    CHERRY_IMAGE = pygame.transform.scale(pygame.image.load('assets/cherry.png'), (30, 30))
+    return CHERRY_IMAGE
+
+
 def load_font():
     game_font = pygame.font.Font("assets/font.ttf", 20)
     return game_font
+
+
+def load_game_over_font():
+    game_over_font = pygame.font.Font("assets/font.ttf", 50)
+    return game_over_font
 
 
 def generate_grid(game_map):
     map_list = list(game_map)
     grid = Grid(matrix=map_list)
     return grid
+
+
+def count_down(que):
+    COUNTDOWN = 20
+    while COUNTDOWN > 0:
+        COUNTDOWN -= 1
+        time.sleep(1)
+        print(COUNTDOWN)
+        que.put('eat ghost')
+    que.put('normal')

@@ -5,7 +5,6 @@ from Players.inky import Inky
 from Players.pinky import Pinky
 from Players.blinky import Blinky
 from Players.clyde import Clyde
-from time import sleep
 import utility
 
 """
@@ -167,9 +166,11 @@ class Game:
 
     def mode_ghost_chase(self):
         pacman_cord = self.return_pacman_x_y()
-        self.clyde.move(self.grid, pacman_cord)
-        self.blinky.move(self.grid, pacman_cord)
         self.inky.move(self.grid, pacman_cord)
+        clyde_aim = utility.generate_random_loc(self.game_map.game_map)
+        self.clyde.move(self.grid, clyde_aim)
+        blinky_aim = utility.generate_random_loc(self.game_map.game_map)
+        self.blinky.move(self.grid, blinky_aim)
         if not self.pinky.aim:
             self.pinky.look_ahead(self.game_map.game_map, pacman_cord)
         self.pinky.move(self.grid, self.pinky.aim)

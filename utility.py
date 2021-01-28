@@ -1,6 +1,6 @@
 import pygame
 from pathfinding.core.grid import Grid
-import time
+from random import randint
 
 pygame.font.init()
 
@@ -88,3 +88,13 @@ def count_down():
         COUNTDOWN = SECONDS * 60
         return 'normal'
     return 'eat ghost'
+
+
+def generate_random_loc(game_map):
+    x = randint(1, 18)
+    y = randint(1, 18)
+    cord = [x, y]
+    if game_map[y][x] != 1:
+        return generate_random_loc(game_map)
+    else:
+        return cord

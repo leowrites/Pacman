@@ -6,6 +6,7 @@ from Players.pinky import Pinky
 from Players.blinky import Blinky
 from Players.clyde import Clyde
 import utility
+import neat
 
 """
 write a pacman game so it is both playable by a human and can train A.I.
@@ -16,9 +17,45 @@ started: Jan 15
 WHITE = pygame.Color(255, 255, 255)
 WALL_COLOR = pygame.Color(0, 0, 128)
 YELLOW = pygame.Color(255, 255, 0)
+gen = 0
 
 change_image = True
 change_path = True
+
+
+def pacman_image_selector(pacmans):
+    for pacman in pacmans:
+        if pacman.direction == "right":
+            if pacman.current_image == 1:
+                pacman.current_image = 2
+            else:
+                pacman.current_image = 1
+        if pacman.direction == "left":
+            if pacman.current_image == 3:
+                pacman.current_image = 4
+            else:
+                pacman.current_image = 3
+        if pacman.direction == "down":
+            if pacman.current_image == 5:
+                pacman.current_image = 6
+            else:
+                pacman.current_image = 5
+        if pacman.direction == "up":
+            if pacman.current_image == 7:
+                pacman.current_image = 8
+            else:
+                pacman.current_image = 7
+
+
+def return_pacman_x_y(pacmans):
+    for pacman in pacmans:
+        x = round((pacman.rect.x - 15) / 30)
+        if x == 0:
+            x = 1
+        y = round((pacman.rect.y - 15) / 30)
+        if y == 0:
+            y = 1
+        return x, y
 
 
 class Game:
@@ -41,22 +78,8 @@ class Game:
     GAME_OVER_FONT = utility.load_game_over_font()
 
     # new objects
-    game_map = Map(surface)
-    coins, total_coins = game_map.spawn_coins(COIN_IMAGE)
-    pacman = Pacman(game_map.game_map, surface, PACMAN_IMAGES)
-    inky = Inky([9, 11], GHOST_IMAGES['inky'], 0, surface, 'chase')
-    pinky = Pinky([10, 11], GHOST_IMAGES['pinky'], 0, surface, 'chase')
-    blinky = Blinky([9, 12], GHOST_IMAGES['blinky'], 0, surface, 'chase')
-    clyde = Clyde([10, 12], GHOST_IMAGES['clyde'], 0, surface, 'chase')
-    ghost_rects = [inky.rect, pinky.rect, clyde.rect, blinky.rect]
-    cherry_rects = game_map.spawn_cherry_rects(CHERRY_IMAGE)
-    ghosts = [inky, pinky, blinky, clyde]
-    ghost_dead = []
 
     # game variables
-    grid = utility.generate_grid(game_map.game_map)
-    level = 0
-    winning = False
 
     # game constants
     ANIMATION_PERIOD = pygame.USEREVENT
@@ -65,107 +88,146 @@ class Game:
     pygame.time.set_timer(CHECK_PATH_INTERVAL, 1000)
 
     def __init__(self):
+        self.game_map = None
         self.running = True
+        self.inky = None
+        self.pinky = None
+        self.blinky = None
+        self.clyde = None
+        self.game_map = None
+        self.coins = self.total_coins = None
+        self.ghost_rects = self.cherry_rects = self.ghosts = self.ghost_dead = None
+        self.grid = None
 
-        while self.running:
-            self.event_handler()
-            self.update()
-            self.draw()
-
-    def update(self):
+    def eval_genome(self, genomes, config):
         global change_image
         global change_path
+        global gen
 
-        if self.pacman.alive:
+        gen += 1
+        nets = []
+        ge = []
+        pacmans = []
 
-            # pacman movement
-            self.pacman.movement_restrictions()
-            if self.pacman.moving:
-                self.pacman.move()
-            self.coins, self.total_coins = self.pacman.eat_coin(self.coins, self.total_coins)
-            self.cherry_rects = self.pacman.eat_cherry(self.cherry_rects)
-            self.ghosts, ghost_dead = self.pacman.is_alive(self.ghosts)
-            if ghost_dead is not None:
-                self.ghost_dead.append(ghost_dead)
-            if self.pacman.mode == 'eat ghost':
-                self.mode_eat_ghost()
+        self.game_map = Map(self.surface)
+        self.coins, self.total_coins = self.game_map.spawn_coins(self.COIN_IMAGE)
+        self.ghost_dead = []
+        self.inky = Inky([9, 11], self.GHOST_IMAGES['inky'], 0, self.surface, 'chase')
+        self.pinky = Pinky([10, 11], self.GHOST_IMAGES['pinky'], 0, self.surface, 'chase')
+        self.blinky = Blinky([9, 12], self.GHOST_IMAGES['blinky'], 0, self.surface, 'chase')
+        self.clyde = Clyde([10, 12], self.GHOST_IMAGES['clyde'], 0, self.surface, 'chase')
+        self.ghost_rects = [self.inky.rect, self.pinky.rect, self.clyde.rect, self.blinky.rect]
+        self.cherry_rects = self.game_map.spawn_cherry_rects(self.CHERRY_IMAGE)
+        self.ghosts = [self.inky, self.pinky, self.blinky, self.clyde]
+        self.grid = utility.generate_grid(self.game_map.game_map)
 
-            # ghost movement
+        for genome_id, genome in genomes:
+            net = neat.nn.FeedForwardNetwork.create(genome, config)
+            nets.append(net)
+            pacmans.append(Pacman(self.game_map.game_map, self.surface, self.PACMAN_IMAGES))
+            genome.fitness = 0
+            ge.append(genome)
+
+        while self.running and len(pacmans) > 0:
+
+            self.draw()
+
+            for x, pacman in enumerate(pacmans):
+
+                distance = pacman.distance_to_ghost(self.ghosts, self.grid)
+                pacman.movement_restrictions()
+                a,b,c,d,e,f,g,h = pacman.get_color()
+                output = nets[x].activate((pacman.rect.centerx, pacman.rect.centery, distance[0], distance[1],
+                                           distance[2], distance[3], a, b, c, d, e, f, g, h))
+                ge[x].fitness += 0.01
+                if pacman.moving:
+                    if output[0] > 0.5:
+                        ge[x].fitness = pacman.move('right', ge[x].fitness)
+                    elif output[1] > 0.5:
+                        ge[x].fitness = pacman.move('left', ge[x].fitness)
+                    elif output[2] > 0.5:
+                        ge[x].fitness = pacman.move('up', ge[x].fitness)
+                    elif output[3] > 0.5:
+                        ge[x].fitness = pacman.move('down', ge[x].fitness)
+                self.coins, self.total_coins, eat_coin = pacman.eat_coin(self.coins, self.total_coins)
+                if eat_coin:
+                    ge[x].fitness += 6
+                self.cherry_rects = pacman.eat_cherry(self.cherry_rects)
+                self.ghosts, ghost_dead = pacman.is_alive(self.ghosts)
+                if ghost_dead is not None:
+                    ghost_dead.append(ghost_dead)
+                pacman.draw()
+
+            for x, pacman in enumerate(pacmans):
+                # combination of x and enumerate allows you to get the position
+                if not pacman.alive:
+                    ge[x].fitness -= 1
+                    # if a bird hits a pipe, it will have less fitness
+                    pacmans.pop(x)
+                    ge.pop(x)
+                    nets.pop(x)
+                    # removes the dead birds from population
+
+            if len(pacmans) == 0:
+                break
+
+            for pacman in pacmans:
+                if pacman.mode == 'eat ghost':
+                    self.mode_eat_ghost(pacmans)
+                    break
+
             for ghost in self.ghosts:
                 if ghost.mode == 'chase':
-                    self.mode_ghost_chase()
+                    self.mode_ghost_chase(pacmans)
                     break
                 if ghost.mode == 'hide':
-                    self.mode_ghost_hide()
+                    self.mode_ghost_hide(pacmans)
                     break
 
-            if self.total_coins == 14:
-                self.winning = True
-                self.level += 1
-                self.reset(self.level)
+            self.respawn_ghost(pacmans)
+            self.event_handler(pacmans)
+            self.display_generation()
+            pygame.display.update()
 
-            self.respawn_ghost()
-
-    def event_handler(self):
+    def event_handler(self, pacmans):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
 
-            key_input = pygame.key.get_pressed()
-
-            if self.pacman.alive:
-                if event.type == self.ANIMATION_PERIOD:
-                    self.pacman_image_selector()
-
-                self.pacman_movements(key_input)
-
-            if key_input[pygame.K_SPACE]:
-                if not self.pacman.alive:
-                    self.reset(0)
+            if event.type == self.ANIMATION_PERIOD:
+                pacman_image_selector(pacmans)
 
     def draw(self):
+        bottom_plane = pygame.Surface((600, 50))
+        self.surface.blit(bottom_plane,
+                          pygame.draw.rect(bottom_plane, WALL_COLOR, bottom_plane.get_rect(center=(300, 625))))
+        self.game_map.draw_map()
+        self.game_map.draw_coins(self.coins, self.COIN_IMAGE)
+        self.game_map.draw_cherry(self.cherry_rects, self.CHERRY_IMAGE)
+        for ghost in self.ghosts:
+            ghost.draw()
+        self.draw_dead_ghost()
 
-        if self.pacman.alive:
-            bottom_plane = pygame.Surface((600, 50))
-            self.surface.blit(bottom_plane,
-                              pygame.draw.rect(bottom_plane, WALL_COLOR, bottom_plane.get_rect(center=(300, 625))))
-            self.game_map.draw_map()
-            self.game_map.draw_coins(self.coins, self.COIN_IMAGE)
-            self.game_map.draw_cherry(self.cherry_rects, self.CHERRY_IMAGE)
-
-            self.pacman.draw()
-            for ghost in self.ghosts:
-                ghost.draw()
-            self.draw_dead_ghost()
-
-            self.display_score()
-
-            pygame.display.update()
-
-        else:
-            self.surface.fill((0, 0, 0))
-            self.display_game_over()
-            pygame.display.update()
-
-    def mode_eat_ghost(self):
+    def mode_eat_ghost(self, pacmans):
         global change_image
         global change_path
-        if change_image:
-            self.change_ghost_image('scared')
-            for ghost in self.ghosts:
-                ghost.mode = 'hide'
-            change_image = False
-        self.pacman.mode = utility.count_down()
-        if self.pacman.mode == 'normal':
-            self.change_ghost_image('normal')
-            for ghost in self.ghosts:
-                ghost.mode = 'chase'
-            change_image = True
-            change_path = True
+        for pacman in pacmans:
+            if change_image:
+                self.change_ghost_image('scared')
+                for ghost in self.ghosts:
+                    ghost.mode = 'hide'
+                change_image = False
+            if utility.count_down() == 'normal':
+                pacman.mode = 'normal'
+                self.change_ghost_image('normal')
+                for ghost in self.ghosts:
+                    ghost.mode = 'chase'
+                change_image = True
+                change_path = True
 
-    def mode_ghost_chase(self):
-        pacman_cord = self.return_pacman_x_y()
+    def mode_ghost_chase(self, pacmans):
+        pacman_cord = return_pacman_x_y(pacmans)
         self.inky.move(self.grid, pacman_cord)
         clyde_aim = utility.generate_random_loc(self.game_map.game_map)
         self.clyde.move(self.grid, clyde_aim)
@@ -176,9 +238,9 @@ class Game:
         self.pinky.move(self.grid, self.pinky.aim)
         self.pinky.clear_aim()
 
-    def mode_ghost_hide(self):
-        pacman_cord = self.return_pacman_x_y()
+    def mode_ghost_hide(self, pacmans):
         global change_path
+        pacman_cord = return_pacman_x_y(pacmans)
         corner = [[1, 1], [18, 1], [1, 18], [18, 18]]
         if change_path:
             for x, ghost in enumerate(self.ghosts):
@@ -196,109 +258,33 @@ class Game:
             self.pinky.surface = self.GHOST_IMAGES['pinky']
             self.clyde.surface = self.GHOST_IMAGES['clyde']
 
-    def respawn_ghost(self):
+    def display_generation(self):
+        generation_surface = self.GAME_FONT.render("Generation:{}".format(gen), False, (255, 255, 255))
+        generation_surface_rect = generation_surface.get_rect(center=(100, 620))
+        self.surface.blit(generation_surface, generation_surface_rect)
+
+    def respawn_ghost(self, pacmans):
         for dead_ghost in self.ghost_dead:
             respawn_complete = dead_ghost.respawn_timer()
             if respawn_complete:
-                pacman_cord = self.return_pacman_x_y()
+                pacman_cord = return_pacman_x_y(pacmans)
                 dead_ghost.find_path(self.grid, pacman_cord)
                 self.ghosts.append(dead_ghost)
                 self.ghost_dead.remove(dead_ghost)
-
-    def return_pacman_x_y(self):
-        x = round((self.pacman.rect.x - 15) / 30)
-        if x == 0:
-            x = 1
-        y = round((self.pacman.rect.y - 15) / 30)
-        if y == 0:
-            y = 1
-        return x, y
 
     def draw_dead_ghost(self):
         if self.ghost_dead:
             for ghost in self.ghost_dead:
                 ghost.draw()
 
-    def pacman_image_selector(self):
-        if self.pacman.direction == "right":
-            if self.pacman.current_image == 1:
-                self.pacman.current_image = 2
-            else:
-                self.pacman.current_image = 1
-        if self.pacman.direction == "left":
-            if self.pacman.current_image == 3:
-                self.pacman.current_image = 4
-            else:
-                self.pacman.current_image = 3
-        if self.pacman.direction == "down":
-            if self.pacman.current_image == 5:
-                self.pacman.current_image = 6
-            else:
-                self.pacman.current_image = 5
-        if self.pacman.direction == "up":
-            if self.pacman.current_image == 7:
-                self.pacman.current_image = 8
-            else:
-                self.pacman.current_image = 7
 
-    def pacman_movements(self, key_input):
+game1 = Game()
 
-        if key_input[pygame.K_LEFT]:
-            self.pacman.moving = True
-            self.pacman.RIGHT = False
-            self.pacman.LEFT = True
-            self.pacman.UP = False
-            self.pacman.DOWN = False
-            self.pacman.direction = "left"
-        elif key_input[pygame.K_RIGHT]:
-            self.pacman.moving = True
-            self.pacman.RIGHT = True
-            self.pacman.LEFT = False
-            self.pacman.UP = False
-            self.pacman.DOWN = False
-            self.pacman.direction = "right"
-        elif key_input[pygame.K_UP]:
-            self.pacman.moving = True
-            self.pacman.RIGHT = False
-            self.pacman.LEFT = False
-            self.pacman.UP = True
-            self.pacman.DOWN = False
-            self.pacman.direction = "up"
-        elif key_input[pygame.K_DOWN]:
-            self.pacman.moving = True
-            self.pacman.RIGHT = False
-            self.pacman.LEFT = False
-            self.pacman.UP = False
-            self.pacman.DOWN = True
-            self.pacman.direction = "down"
 
-    def reset(self, level):
-        self.pacman = Pacman(self.game_map.game_map, self.surface, self.PACMAN_IMAGES)
-        self.inky = Inky([9, 11], self.GHOST_IMAGES['inky'], level, self.surface, 'chase')
-        self.pinky = Pinky([10, 11], self.GHOST_IMAGES['pinky'], level, self.surface, 'chase')
-        self.blinky = Blinky([9, 12], self.GHOST_IMAGES['blinky'], level, self.surface, 'chase')
-        self.clyde = Clyde([10, 12], self.GHOST_IMAGES['clyde'], level, self.surface, 'chase')
-        self.coins, self.total_coins = self.game_map.spawn_coins(self.COIN_IMAGE)
-        self.ghosts = [self.inky, self.pinky, self.blinky, self.clyde]
-        self.ghost_rects = [self.inky.rect, self.pinky.rect, self.blinky.rect, self.clyde.rect]
-        self.cherry_rects = self.game_map.spawn_cherry_rects(self.CHERRY_IMAGE)
-
-    def display_game_over(self):
-        logo = self.GAME_OVER_FONT.render('PACMAN BY LEO', False, YELLOW)
-        logo_rect = logo.get_rect(center=(300, 250))
-        self.surface.blit(logo, logo_rect)
-        surface = self.GAME_OVER_FONT.render("GAME OVER!", False, WHITE)
-        rect = surface.get_rect(center=(300, 300))
-        self.surface.blit(surface, rect)
-        surface1 = self.GAME_FONT.render("PRESS SPACE TO PLAY AGAIN", False, WHITE)
-        rect1 = surface1.get_rect(center=(300, 350))
-        self.surface.blit(surface1, rect1)
-
-    def display_score(self):
-        score_surface = self.GAME_FONT.render("Score:{}".format(self.pacman.score), False, WHITE)
-        rect = score_surface.get_rect(center=(100, 625))
-        self.surface.blit(score_surface, rect)
-
-        author_surface = self.GAME_FONT.render("Pacman By Leo!", False, YELLOW)
-        rect1 = author_surface.get_rect(center=(400, 625))
-        self.surface.blit(author_surface, rect1)
+def run(config_file):
+    config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction, neat.DefaultSpeciesSet,
+                                neat.DefaultStagnation, config_file)
+    population = neat.Population(config)
+    population.add_reporter(neat.StdOutReporter(True))
+    population.add_reporter(neat.StatisticsReporter())
+    winner = population.run(game1.eval_genome, 100)

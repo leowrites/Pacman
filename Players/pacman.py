@@ -1,6 +1,6 @@
-import random
 import pygame
-import numpy as np
+from pathfinding.finder.a_star import AStarFinder
+from pathfinding.core.grid import Grid
 
 UNIT_SIZE = 30
 WALL_COLOR = pygame.Color(0, 0, 128)
@@ -25,6 +25,7 @@ class Pacman:
         self.alive = True
 
         self.score = 0
+        self.distance_traveled = 0
         self.game_map = game_map
         self.image = image
         self.current_image = 1
@@ -35,17 +36,22 @@ class Pacman:
         # this is used to locate the pacman on the grid
         self.game_window = game_window
 
-    def move(self):
+    def move(self, direction, fitness):
         # need to map the pacman's location to the cell on a map
         # we can use a for loop to detect if the pacman collides with a block that has a value 1
-        if self.RIGHT:
-            self.rect.x += self.velocity_x
-        elif self.LEFT:
-            self.rect.x -= self.velocity_x
-        elif self.UP:
-            self.rect.y -= self.velocity_y
-        elif self.DOWN:
-            self.rect.y += self.velocity_y
+        self.direction = direction
+        if self.moving:
+            if direction == 'right':
+                self.rect.x += self.velocity_x
+            elif direction == 'left':
+                self.rect.x -= self.velocity_x
+            elif direction == 'up':
+                self.rect.y -= self.velocity_y
+            elif direction == 'down':
+                self.rect.y += self.velocity_y
+            fitness += 0.05
+            return fitness
+        return fitness
 
     def eat_cherry(self, cherry_rects):
         """
@@ -59,6 +65,29 @@ class Pacman:
                 self.score += 500
                 cherry_rects.remove(cherry_rect)
         return cherry_rects
+
+    def get_pixel_around(self, ahead=1):
+        a = (self.rect.topright[0] + ahead, self.rect.topright[1])
+        b = (self.rect.bottomright[0] + ahead, self.rect.bottomright[1])
+        c = (self.rect.topleft[0] - ahead, self.rect.topleft[1])
+        d = (self.rect.bottomleft[0] - ahead, self.rect.bottomleft[1])
+        e = (self.rect.topright[0], self.rect.topright[1] - ahead)
+        f = (self.rect.topleft[0], self.rect.topleft[1] - ahead)
+        g = (self.rect.bottomright[0], self.rect.bottomright[1] + ahead)
+        h = (self.rect.bottomleft[0], self.rect.bottomleft[1] + ahead)
+        return a, b, c, d, e, f, g, h
+
+    def get_color(self):
+        a, b, c, d, e, f, g, h = self.get_pixel_around()
+        ca = self.game_window.get_at(a)
+        cb = self.game_window.get_at(b)
+        cc = self.game_window.get_at(c)
+        cd = self.game_window.get_at(d)
+        ce = self.game_window.get_at(e)
+        cf = self.game_window.get_at(f)
+        cg = self.game_window.get_at(g)
+        ch = self.game_window.get_at(h)
+        return ca.a, cb.a, cc.a, cd.a, ce.a, cf.a, cg.a, ch.a
 
     def get_pixel_ahead(self, ahead=1):
         xy_ahead_a = []
@@ -84,6 +113,9 @@ class Pacman:
         # if both color are channel, then moving is true, else its false
         if color_ahead_a == WALL_COLOR or color_ahead_b == WALL_COLOR:
             self.moving = False
+        else:
+            self.moving = True
+        return color_ahead_b, color_ahead_b
 
     def eat_coin(self, coin_rects, total_coins):
         # if collides, return true and remove the coin
@@ -95,8 +127,8 @@ class Pacman:
                         coin_rects[y][x] = 0
                         total_coins -= 1
                         self.score += 100
-                        return coin_rects, total_coins
-        return coin_rects, total_coins
+                        return coin_rects, total_coins, True
+        return coin_rects, total_coins, False
 
     def is_alive(self, ghosts):
         """
@@ -116,3 +148,22 @@ class Pacman:
 
     def draw(self):
         self.game_window.blit(self.image[self.current_image], self.rect)
+
+    def distance_to_ghost(self, ghosts, grid):
+        distance = []
+        if ghosts is not None:
+            for ghost in ghosts:
+                d = self.find_path(grid, ghost.location)
+                distance.append(d)
+        return distance
+
+    def find_path(self, grid, final):
+
+        x = round((self.rect.x - 15) / 30)
+        y = round((self.rect.y - 15) / 30)
+        start = grid.node(x, y)
+        end = grid.node(final[0], final[1])
+        finder = AStarFinder()
+        path, runs = finder.find_path(start, end, grid)
+        Grid.cleanup(grid)
+        return len(path)

@@ -7,13 +7,15 @@ WALL_COLOR = Color(0, 0, 128)
 
 
 class Ghost:
-    def __init__(self, location, image, aggression, game_window, mode):
-        self.location = location
-        self.image = image
+    def __init__(self, init_location, image, aggression, game_window, mode):
+        self.respawn_cooldown = 300
+        self.init_location = init_location
+        self.location = init_location
         self.aggression = aggression
         self.game_window = game_window
         self.mode = mode
         self.moving = True
+        self.image = image
         self.surface = image
         self.velocity_x = self.velocity_y = 1
         self.game_window = game_window
@@ -23,12 +25,6 @@ class Ghost:
         self.path = []
         self.name = ''
         self.aim = []
-
-    def mode_select(self, pacman_state):
-        if pacman_state == 'super':
-            self.mode = 'hide'
-        else:
-            self.mode = 'chase'
 
     def draw(self):
         self.game_window.blit(self.surface, self.rect)
@@ -40,7 +36,6 @@ class Ghost:
         end = grid.node(final[0], final[1])
         finder = AStarFinder()
         self.path, runs = finder.find_path(start, end, grid)
-        print(str(self.path) + self.name)
         Grid.cleanup(grid)
 
     def move(self, grid, final):
@@ -65,3 +60,17 @@ class Ghost:
             self.location[1] = round((self.rect.y - 15) / 30)
         except IndexError:
             print("{}: no path found! Cord:{}".format(self.name, final))
+
+    def respawn_timer(self):
+        if self.respawn_cooldown > 0:
+            self.respawn_cooldown -= 1
+            self.surface = self.image
+            self.rect = self.surface.get_rect(center=self.spawn_location)
+            self.moving = False
+            return False
+        else:
+            self.location[0] = round((self.rect.x - 15) / 30)
+            self.location[1] = round((self.rect.y - 15) / 30)
+            self.moving = True
+            self.respawn_cooldown = 500
+            return True

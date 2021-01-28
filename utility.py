@@ -4,6 +4,9 @@ import time
 
 pygame.font.init()
 
+SECONDS = 10
+COUNTDOWN = SECONDS * 60
+
 
 def load_images_pacman():
     PACMAN_RIGHT_OPEN = pygame.transform.smoothscale(pygame.image.load("assets/pacman_right_open.png"), (20, 20))
@@ -41,8 +44,13 @@ def load_images_ghost():
     return IMAGES
 
 
+def load_scared_ghosts():
+    SCARED = pygame.transform.smoothscale(pygame.image.load("assets/scared.png"), (20, 20))
+    return SCARED
+
+
 def load_images_coin():
-    COIN_IMAGE = pygame.transform.scale(pygame.image.load("assets/coin.png"), (15, 15))
+    COIN_IMAGE = pygame.transform.scale(pygame.image.load("assets/coin.png"), (7, 7))
     return COIN_IMAGE
 
 
@@ -67,11 +75,16 @@ def generate_grid(game_map):
     return grid
 
 
-def count_down(que):
-    COUNTDOWN = 20
-    while COUNTDOWN > 0:
-        COUNTDOWN -= 1
-        time.sleep(1)
-        print(COUNTDOWN)
-        que.put('eat ghost')
-    que.put('normal')
+def count_down():
+    """
+    because the game updates 60 times a second, function
+    should subtract 1 from COUNTDOWN 60 times a second to acheive countdown
+    :return: state of the pacman
+    """
+    global COUNTDOWN
+    COUNTDOWN -= 1
+    if COUNTDOWN == 0:
+        # resets the clock
+        COUNTDOWN = SECONDS * 60
+        return 'normal'
+    return 'eat ghost'

@@ -8,7 +8,7 @@ WALL_COLOR = pygame.Color(0, 0, 128)
 
 class Pacman:
     # static variables for all pacman
-    cur_location_on_grid = [0, 0]
+    cur_location_on_grid = [10, 14]
     # this is for showing the pacman
     velocity_x = 1
     velocity_y = 1
@@ -29,8 +29,6 @@ class Pacman:
         self.image = image
         self.current_image = 1
         self.mode = 'normal'
-
-        self.spawn()
         self.rect = self.image[1].get_rect(
             center=(self.cur_location_on_grid[0] * UNIT_SIZE + 15, self.cur_location_on_grid[1] * UNIT_SIZE + 15))
 
@@ -87,16 +85,7 @@ class Pacman:
         if color_ahead_a == WALL_COLOR or color_ahead_b == WALL_COLOR:
             self.moving = False
 
-    def spawn(self):
-        """
-        generates a valid spawn location
-        :return:
-        """
-        self.cur_location_on_grid = [random.randint(0, 19), random.randint(0, 19)]
-        while self.game_map[self.cur_location_on_grid[1]][self.cur_location_on_grid[0]] == 0:
-            self.spawn()
-
-    def eat_coin(self, coin_rects):
+    def eat_coin(self, coin_rects, total_coins):
         # if collides, return true and remove the coin
         for y, rows in enumerate(coin_rects):
             for x in range(len(rows)):
@@ -104,18 +93,26 @@ class Pacman:
                 if this_coin != 0:
                     if pygame.Rect.colliderect(self.rect, this_coin):
                         coin_rects[y][x] = 0
+                        total_coins -= 1
                         self.score += 100
-                        return coin_rects
-        return coin_rects
+                        return coin_rects, total_coins
+        return coin_rects, total_coins
 
-    def is_alive(self, ghost_rects):
+    def is_alive(self, ghosts):
         """
         :param ghost_rect: a list of ghost rectangles to be looped through to check if collides with pacman
         :return: nothing
         """
-        for ghost_rect in ghost_rects:
-            if pygame.rect.Rect.colliderect(self.rect, ghost_rect):
-                self.alive = False
+        for ghost in ghosts:
+            if pygame.rect.Rect.colliderect(self.rect, ghost.rect):
+                if self.mode == 'eat ghost':
+                    self.score += 2000
+                    ghosts.remove(ghost)
+                    return ghosts, ghost
+                else:
+                    self.alive = False
+                    return ghosts, None
+        return ghosts, None
 
     def draw(self):
         self.game_window.blit(self.image[self.current_image], self.rect)

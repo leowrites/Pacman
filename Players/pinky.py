@@ -10,6 +10,7 @@ class Pinky(Ghost):
     def __init__(self, location, image, aggression, game_window, mode):
         super().__init__(location, image, aggression, game_window, mode)
         self.name = 'Pinky'
+        self.init_location = [10, 9]
 
     def look_ahead(self, game_map, pacman_location):
         a = [pacman_location[0] + 3, pacman_location[1]]

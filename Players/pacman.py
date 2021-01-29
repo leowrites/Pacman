@@ -1,9 +1,11 @@
 import pygame
 from pathfinding.finder.a_star import AStarFinder
 from pathfinding.core.grid import Grid
+import numpy as np
 
 UNIT_SIZE = 30
 WALL_COLOR = pygame.Color(0, 0, 128)
+TILE_SIZE = (30, 30)
 
 
 class Pacman:
@@ -25,16 +27,42 @@ class Pacman:
         self.alive = True
 
         self.score = 0
+        self.winning = False
         self.distance_traveled = 0
         self.game_map = game_map
         self.image = image
         self.current_image = 1
         self.mode = 'normal'
+        self.coins = np.zeros((20, 20), dtype=pygame.Rect)
+        self.total_coins = 0
         self.rect = self.image[1].get_rect(
             center=(self.cur_location_on_grid[0] * UNIT_SIZE + 15, self.cur_location_on_grid[1] * UNIT_SIZE + 15))
 
         # this is used to locate the pacman on the grid
         self.game_window = game_window
+
+    def spawn_coins(self, COIN_IMAGE):
+        self.total_coins = np.sum(1 - self.game_map)
+        for y, rows in enumerate(self.game_map):
+            for x in range(len(rows)):
+                # coin cannot spawn inside jail?
+                current = self.game_map[y][x]
+                current_location = (
+                    x * TILE_SIZE[0] + 15, y * TILE_SIZE[1] + 15)
+                if current == 1:
+                    self.coins[y][x] = COIN_IMAGE.get_rect(
+                        center=current_location)
+
+    def draw_coins(self, coins, COIN_IMAGE):
+        for y, rows in enumerate(coins):
+            for x in range(len(rows)):
+                current = coins[y][x]
+                current_location = (
+                    x * TILE_SIZE[0] + 15, y * TILE_SIZE[1] + 15)
+                rect = COIN_IMAGE.get_rect(center=current_location)
+                # creating the surface
+                if current != 0:
+                    self.game_window.blit(COIN_IMAGE, rect)
 
     def move(self, direction, fitness):
         # need to map the pacman's location to the cell on a map
@@ -87,23 +115,27 @@ class Pacman:
         cf = self.game_window.get_at(f)
         cg = self.game_window.get_at(g)
         ch = self.game_window.get_at(h)
-        return ca.a, cb.a, cc.a, cd.a, ce.a, cf.a, cg.a, ch.a
+        return ca.a, cc.a, ce.a, cg.a
 
     def get_pixel_ahead(self, ahead=1):
         xy_ahead_a = []
         xy_ahead_b = []
         if self.direction == "right":
             xy_ahead_a = (self.rect.topright[0] + ahead, self.rect.topright[1])
-            xy_ahead_b = (self.rect.bottomright[0] + ahead, self.rect.bottomright[1])
+            xy_ahead_b = (
+                self.rect.bottomright[0] + ahead, self.rect.bottomright[1])
         if self.direction == "left":
             xy_ahead_a = (self.rect.topleft[0] - ahead, self.rect.topleft[1])
-            xy_ahead_b = (self.rect.bottomleft[0] - ahead, self.rect.bottomleft[1])
+            xy_ahead_b = (
+                self.rect.bottomleft[0] - ahead, self.rect.bottomleft[1])
         if self.direction == "up":
             xy_ahead_a = (self.rect.topright[0], self.rect.topright[1] - ahead)
             xy_ahead_b = (self.rect.topleft[0], self.rect.topleft[1] - ahead)
         if self.direction == "down":
-            xy_ahead_a = (self.rect.bottomright[0], self.rect.bottomright[1] + ahead)
-            xy_ahead_b = (self.rect.bottomleft[0], self.rect.bottomleft[1] + ahead)
+            xy_ahead_a = (
+                self.rect.bottomright[0], self.rect.bottomright[1] + ahead)
+            xy_ahead_b = (
+                self.rect.bottomleft[0], self.rect.bottomleft[1] + ahead)
         return xy_ahead_a, xy_ahead_b
 
     def movement_restrictions(self):
@@ -113,22 +145,25 @@ class Pacman:
         # if both color are channel, then moving is true, else its false
         if color_ahead_a == WALL_COLOR or color_ahead_b == WALL_COLOR:
             self.moving = False
-        else:
-            self.moving = True
+            self.alive = False
         return color_ahead_b, color_ahead_b
 
-    def eat_coin(self, coin_rects, total_coins):
+    def eat_coin(self):
         # if collides, return true and remove the coin
-        for y, rows in enumerate(coin_rects):
+        for y, rows in enumerate(self.coins):
             for x in range(len(rows)):
-                this_coin = coin_rects[y][x]
+                this_coin = self.coins[y][x]
                 if this_coin != 0:
                     if pygame.Rect.colliderect(self.rect, this_coin):
-                        coin_rects[y][x] = 0
-                        total_coins -= 1
+                        self.coins[y][x] = 0
+                        self.total_coins -= 1
                         self.score += 100
-                        return coin_rects, total_coins, True
-        return coin_rects, total_coins, False
+                        return True
+        return False
+
+    def win(self):
+        if self.total_coins == 14:
+            self.winning = True
 
     def is_alive(self, ghosts):
         """
@@ -146,8 +181,9 @@ class Pacman:
                     return ghosts, None
         return ghosts, None
 
-    def draw(self):
+    def draw(self, COIN_IMAGE):
         self.game_window.blit(self.image[self.current_image], self.rect)
+        self.draw_coins(self.coins, COIN_IMAGE)
 
     def distance_to_ghost(self, ghosts, grid):
         distance = []

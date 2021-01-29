@@ -95,7 +95,6 @@ class Game:
         self.blinky = None
         self.clyde = None
         self.game_map = None
-        self.coins = self.total_coins = None
         self.ghost_rects = self.cherry_rects = self.ghosts = self.ghost_dead = None
         self.grid = None
 
@@ -110,13 +109,17 @@ class Game:
         pacmans = []
 
         self.game_map = Map(self.surface)
-        self.coins, self.total_coins = self.game_map.spawn_coins(self.COIN_IMAGE)
         self.ghost_dead = []
-        self.inky = Inky([9, 11], self.GHOST_IMAGES['inky'], 0, self.surface, 'chase')
-        self.pinky = Pinky([10, 11], self.GHOST_IMAGES['pinky'], 0, self.surface, 'chase')
-        self.blinky = Blinky([9, 12], self.GHOST_IMAGES['blinky'], 0, self.surface, 'chase')
-        self.clyde = Clyde([10, 12], self.GHOST_IMAGES['clyde'], 0, self.surface, 'chase')
-        self.ghost_rects = [self.inky.rect, self.pinky.rect, self.clyde.rect, self.blinky.rect]
+        self.inky = Inky([9, 11], self.GHOST_IMAGES['inky'],
+                         0, self.surface, 'chase')
+        self.pinky = Pinky(
+            [10, 11], self.GHOST_IMAGES['pinky'], 0, self.surface, 'chase')
+        self.blinky = Blinky(
+            [9, 12], self.GHOST_IMAGES['blinky'], 0, self.surface, 'chase')
+        self.clyde = Clyde(
+            [10, 12], self.GHOST_IMAGES['clyde'], 0, self.surface, 'chase')
+        self.ghost_rects = [self.inky.rect, self.pinky.rect,
+                            self.clyde.rect, self.blinky.rect]
         self.cherry_rects = self.game_map.spawn_cherry_rects(self.CHERRY_IMAGE)
         self.ghosts = [self.inky, self.pinky, self.blinky, self.clyde]
         self.grid = utility.generate_grid(self.game_map.game_map)
@@ -124,9 +127,13 @@ class Game:
         for genome_id, genome in genomes:
             net = neat.nn.FeedForwardNetwork.create(genome, config)
             nets.append(net)
-            pacmans.append(Pacman(self.game_map.game_map, self.surface, self.PACMAN_IMAGES))
+            pacmans.append(Pacman(self.game_map.game_map,
+                                  self.surface, self.PACMAN_IMAGES))
             genome.fitness = 0
             ge.append(genome)
+
+        for x, pacman in enumerate(pacmans):
+            pacmans[x].spawn_coins(self.COIN_IMAGE)
 
         while self.running and len(pacmans) > 0:
 
@@ -135,33 +142,31 @@ class Game:
             for x, pacman in enumerate(pacmans):
 
                 distance = pacman.distance_to_ghost(self.ghosts, self.grid)
-                pacman.movement_restrictions()
-                a,b,c,d,e,f,g,h = pacman.get_color()
-                output = nets[x].activate((pacman.rect.centerx, pacman.rect.centery, distance[0], distance[1],
-                                           distance[2], distance[3], a, b, c, d, e, f, g, h))
+                a, c, e, g = pacman.get_color()
+                output = nets[x].activate((distance[0], distance[1],
+                distance[2], distance[3], a, c, e, g))
                 ge[x].fitness += 0.01
                 if pacman.moving:
                     if output[0] > 0.5:
                         ge[x].fitness = pacman.move('right', ge[x].fitness)
                     elif output[1] > 0.5:
                         ge[x].fitness = pacman.move('left', ge[x].fitness)
-                    elif output[2] > 0.5:
+                    elif output[2] > 0.25:
                         ge[x].fitness = pacman.move('up', ge[x].fitness)
-                    elif output[3] > 0.5:
+                    elif output[3] > 0.25:
                         ge[x].fitness = pacman.move('down', ge[x].fitness)
-                self.coins, self.total_coins, eat_coin = pacman.eat_coin(self.coins, self.total_coins)
-                if eat_coin:
-                    ge[x].fitness += 6
+                if pacman.eat_coin():
+                    ge[x].fitness += 10
                 self.cherry_rects = pacman.eat_cherry(self.cherry_rects)
                 self.ghosts, ghost_dead = pacman.is_alive(self.ghosts)
                 if ghost_dead is not None:
                     ghost_dead.append(ghost_dead)
-                pacman.draw()
-
+                pacman.draw(self.COIN_IMAGE)
             for x, pacman in enumerate(pacmans):
+                pacman.movement_restrictions()
                 # combination of x and enumerate allows you to get the position
                 if not pacman.alive:
-                    ge[x].fitness -= 1
+                    ge[x].fitness -= 2
                     # if a bird hits a pipe, it will have less fitness
                     pacmans.pop(x)
                     ge.pop(x)
@@ -203,7 +208,6 @@ class Game:
         self.surface.blit(bottom_plane,
                           pygame.draw.rect(bottom_plane, WALL_COLOR, bottom_plane.get_rect(center=(300, 625))))
         self.game_map.draw_map()
-        self.game_map.draw_coins(self.coins, self.COIN_IMAGE)
         self.game_map.draw_cherry(self.cherry_rects, self.CHERRY_IMAGE)
         for ghost in self.ghosts:
             ghost.draw()
@@ -259,8 +263,10 @@ class Game:
             self.clyde.surface = self.GHOST_IMAGES['clyde']
 
     def display_generation(self):
-        generation_surface = self.GAME_FONT.render("Generation:{}".format(gen), False, (255, 255, 255))
-        generation_surface_rect = generation_surface.get_rect(center=(100, 620))
+        generation_surface = self.GAME_FONT.render(
+            "Generation:{}".format(gen), False, (255, 255, 255))
+        generation_surface_rect = generation_surface.get_rect(
+            center=(100, 620))
         self.surface.blit(generation_surface, generation_surface_rect)
 
     def respawn_ghost(self, pacmans):
@@ -287,4 +293,4 @@ def run(config_file):
     population = neat.Population(config)
     population.add_reporter(neat.StdOutReporter(True))
     population.add_reporter(neat.StatisticsReporter())
-    winner = population.run(game1.eval_genome, 100)
+    winner = population.run(game1.eval_genome, 1000)

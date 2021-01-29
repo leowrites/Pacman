@@ -1,19 +1,18 @@
-from queue import Queue
-from threading import Thread
-from time import sleep
 
+def check_radar(self, degree, map):
+    len = 0
+    x = int(
+          self.center[0] + math.cos(math.radians(360 - (self.angle + degree))) * len)
+    y = int(
+           self.center[1] + math.sin(math.radians(360 - (self.angle + degree))) * len)
 
-def function(queue):
-    seconds = 20
+    while not map.get_at((x, y)) == (255, 255, 255, 255) and len < 300:
+            len = len + 1
+            x = int(
+                self.center[0] + math.cos(math.radians(360 - (self.angle + degree))) * len)
+            y = int(
+                self.center[1] + math.sin(math.radians(360 - (self.angle + degree))) * len)
 
-    while seconds > 0:
-        seconds -= 1
-        print(seconds)
-        queue.put('eat ghost')
-    queue.put('normal')
-
-
-queue = Queue()
-thread = Thread(target=function(queue))
-thread.start()
-print(queue.get())
+    dist = int(
+        math.sqrt(math.pow(x - self.center[0], 2) + math.pow(y - self.center[1], 2)))
+    self.radars.append([(x, y), dist])

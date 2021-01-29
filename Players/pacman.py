@@ -14,7 +14,7 @@ class Pacman:
     # this is for showing the pacman
     velocity_x = 1
     velocity_y = 1
-    direction = "right"
+    direction = "up"
     is_super = False
 
     def __init__(self, game_map, game_window, image):
@@ -26,6 +26,8 @@ class Pacman:
         self.moving = True
         self.alive = True
 
+        self.radars = []
+        self.distance = []
         self.score = 0
         self.winning = False
         self.distance_traveled = 0
@@ -94,28 +96,45 @@ class Pacman:
                 cherry_rects.remove(cherry_rect)
         return cherry_rects
 
-    def get_pixel_around(self, ahead=1):
-        a = (self.rect.topright[0] + ahead, self.rect.topright[1])
-        b = (self.rect.bottomright[0] + ahead, self.rect.bottomright[1])
-        c = (self.rect.topleft[0] - ahead, self.rect.topleft[1])
-        d = (self.rect.bottomleft[0] - ahead, self.rect.bottomleft[1])
-        e = (self.rect.topright[0], self.rect.topright[1] - ahead)
-        f = (self.rect.topleft[0], self.rect.topleft[1] - ahead)
-        g = (self.rect.bottomright[0], self.rect.bottomright[1] + ahead)
-        h = (self.rect.bottomleft[0], self.rect.bottomleft[1] + ahead)
-        return a, b, c, d, e, f, g, h
+    def radar(self, direction, pixel):
 
-    def get_color(self):
-        a, b, c, d, e, f, g, h = self.get_pixel_around()
-        ca = self.game_window.get_at(a)
-        cb = self.game_window.get_at(b)
-        cc = self.game_window.get_at(c)
-        cd = self.game_window.get_at(d)
-        ce = self.game_window.get_at(e)
-        cf = self.game_window.get_at(f)
-        cg = self.game_window.get_at(g)
-        ch = self.game_window.get_at(h)
-        return ca.a, cc.a, ce.a, cg.a
+        length = 0
+        x = int(self.rect.centerx)
+        y = int(self.rect.centery)
+
+        if direction == 'right':
+            while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
+                length += 1
+                x = int(self.rect.centerx + length)
+            distance = abs(x - self.rect.centerx)
+            self.radars.append([(x, y), distance])
+        if direction == 'left':
+            while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
+                length += 1
+                x = int(self.rect.centerx - length)
+            distance = abs(self.rect.centerx - x)
+            self.radars.append([(x, y), distance])
+        if direction == 'up':
+            while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
+                length += 1
+                y = int(self.rect.centery - length)
+            distance = abs(self.rect.centery - y)
+            self.radars.append([(x, y), distance])
+        if direction == 'down':
+            while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
+                length += 1
+                y = int(self.rect.centery + length)
+            distance = abs(y - self.rect.centery)
+            self.radars.append([(x, y), distance])
+
+    def get_data(self):
+        radars = self.radars
+        ret = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+        for i, r in enumerate(radars):
+            ret[i] = int(r[1])
+        for x in range(4):
+            ret[4+x] = self.distance[x]
+        return ret
 
     def get_pixel_ahead(self, ahead=1):
         xy_ahead_a = []
@@ -181,22 +200,25 @@ class Pacman:
                     return ghosts, None
         return ghosts, None
 
+    def draw_radar(self):
+        for r in self.radars:
+            pos, dest = r
+            pygame.draw.line(self.game_window, (0, 255, 0), (self.rect.centerx, self.rect.centery), pos, 1)
+
     def draw(self, COIN_IMAGE):
         self.game_window.blit(self.image[self.current_image], self.rect)
         self.draw_coins(self.coins, COIN_IMAGE)
 
     def distance_to_ghost(self, ghosts, grid):
-        distance = []
+        self.distance.clear()
         if ghosts is not None:
             for ghost in ghosts:
-                d = self.find_path(grid, ghost.location)
-                distance.append(d)
-        return distance
+                d = self.find_path(grid, ghost.get_location())
+                self.distance.append(d)
 
     def find_path(self, grid, final):
-
-        x = round((self.rect.x - 15) / 30)
-        y = round((self.rect.y - 15) / 30)
+        x = round((self.rect.centerx - 15) / 30)
+        y = round((self.rect.centery - 15) / 30)
         start = grid.node(x, y)
         end = grid.node(final[0], final[1])
         finder = AStarFinder()

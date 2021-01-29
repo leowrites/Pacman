@@ -56,10 +56,15 @@ class Ghost:
             if self.rect.centery < next_y:
                 self.rect.centery += self.velocity_y
 
-            self.location[0] = round((self.rect.x - 15) / 30)
-            self.location[1] = round((self.rect.y - 15) / 30)
+            self.location[0] = round((self.rect.centerx - 15) / 30)
+            self.location[1] = round((self.rect.centery - 15) / 30)
         except IndexError:
             print("{}: no path found! Cord:{}".format(self.name, final))
+
+    def get_location(self):
+        self.location[0] = round((self.rect.centerx - 15) / 30)
+        self.location[1] = round((self.rect.centery - 15) / 30)
+        return self.location[0], self.location[1]
 
     def respawn_timer(self):
         if self.respawn_cooldown > 0:
@@ -69,8 +74,8 @@ class Ghost:
             self.moving = False
             return False
         else:
-            self.location[0] = round((self.rect.x - 15) / 30)
-            self.location[1] = round((self.rect.y - 15) / 30)
+            self.location[0] = round((self.rect.centerx - 15) / 30)
+            self.location[1] = round((self.rect.centery - 15) / 30)
             self.moving = True
             self.respawn_cooldown = 500
             return True

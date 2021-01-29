@@ -141,22 +141,25 @@ class Game:
 
             for x, pacman in enumerate(pacmans):
 
-                distance = pacman.distance_to_ghost(self.ghosts, self.grid)
-                a, c, e, g = pacman.get_color()
-                output = nets[x].activate((distance[0], distance[1],
-                distance[2], distance[3], a, c, e, g))
-                ge[x].fitness += 0.01
+                direction = ['right','left','up','down']
+                pacman.radars.clear()
+                for d in direction:
+                    pacman.radar(d, self.surface)
+                pacman.distance_to_ghost(self.ghosts, self.grid)
+                output = nets[x].activate((pacman.get_data()))
                 if pacman.moving:
                     if output[0] > 0.5:
                         ge[x].fitness = pacman.move('right', ge[x].fitness)
                     elif output[1] > 0.5:
                         ge[x].fitness = pacman.move('left', ge[x].fitness)
-                    elif output[2] > 0.25:
+                    elif output[2] > 0.5:
                         ge[x].fitness = pacman.move('up', ge[x].fitness)
-                    elif output[3] > 0.25:
+                    elif output[3] > 0.5:
                         ge[x].fitness = pacman.move('down', ge[x].fitness)
+                    else:
+                        pacman.alive = False
                 if pacman.eat_coin():
-                    ge[x].fitness += 10
+                    ge[x].fitness += 5
                 self.cherry_rects = pacman.eat_cherry(self.cherry_rects)
                 self.ghosts, ghost_dead = pacman.is_alive(self.ghosts)
                 if ghost_dead is not None:
@@ -164,14 +167,10 @@ class Game:
                 pacman.draw(self.COIN_IMAGE)
             for x, pacman in enumerate(pacmans):
                 pacman.movement_restrictions()
-                # combination of x and enumerate allows you to get the position
                 if not pacman.alive:
-                    ge[x].fitness -= 2
-                    # if a bird hits a pipe, it will have less fitness
                     pacmans.pop(x)
                     ge.pop(x)
                     nets.pop(x)
-                    # removes the dead birds from population
 
             if len(pacmans) == 0:
                 break

@@ -142,10 +142,11 @@ class Game:
 
             for x, pacman in enumerate(pacmans):
 
-                direction = ['right','left','up','down']
+                direction = ['right', 'left', 'up', 'down']
                 pacman.radars.clear()
                 for d in direction:
                     pacman.radar(d, self.surface)
+
                 pacman.distance_to_ghost(self.ghosts, self.grid)
                 output = nets[x].activate((pacman.get_data()))
                 if pacman.moving:
@@ -159,16 +160,16 @@ class Game:
                         ge[x].fitness = pacman.move('down')
                     else:
                         pacman.alive = False
+
                 self.cherry_rects = pacman.eat_cherry(self.cherry_rects)
                 self.ghosts, ghost_dead = pacman.is_alive(self.ghosts)
+
                 pacman.eat_coin()
                 ge[x].fitness = pacman.get_fitness()
+
                 if ghost_dead is not None:
                     ghost_dead.append(ghost_dead)
                 pacman.draw(self.COIN_IMAGE)
-                if pacman.fitness > 5000:
-                    pickle.dump(nets[x], open("best.pickle", "wb"))
-                    break
             for x, pacman in enumerate(pacmans):
                 pacman.movement_restrictions()
                 if not pacman.alive:
@@ -293,7 +294,14 @@ game1 = Game()
 def run(config_file):
     config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction, neat.DefaultSpeciesSet,
                                 neat.DefaultStagnation, config_file)
-    population = neat.Population(config)
+    # population = neat.Population(config)
+    population = neat.Checkpointer.restore_checkpoint('neat-checkpoint-{}'.format(input("Which generation do you want "
+                                                                                        "to simulate? ")))
+    stats = neat.StatisticsReporter()
     population.add_reporter(neat.StdOutReporter(True))
-    population.add_reporter(neat.StatisticsReporter())
-    winner = population.run(game1.eval_genome, 1000)
+    population.add_reporter(neat.Checkpointer(5))
+
+    winner = population.run(game1.eval_genome, 500)
+    win = population.best_genome
+    pickle.dump(winner, open('winner_pop.pkl', 'wb'))
+    pickle.dump(win, open('winner.pkl', 'wb'))

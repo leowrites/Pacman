@@ -1,1 +1,0 @@
-# TODO: implement NEAT for pacman, figure out the input variables, such as the distance between the pacman and the ghost

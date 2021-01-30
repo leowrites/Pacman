@@ -6,14 +6,14 @@ import numpy as np
 UNIT_SIZE = 30
 WALL_COLOR = pygame.Color(0, 0, 128)
 TILE_SIZE = (30, 30)
-COUNTDOWN = 10
+COUNTDOWN = 30
 
 
 def count_down():
     global COUNTDOWN
     COUNTDOWN -= 1
     if COUNTDOWN == 0:
-        COUNTDOWN = 60
+        COUNTDOWN = 30
         return True
     else:
         return False
@@ -26,14 +26,11 @@ class Pacman:
     direction = "up"
 
     def __init__(self, game_map, game_window, image):
-        self.RIGHT = True
-        self.LEFT = False
-        self.UP = False
-        self.DOWN = False
 
         self.moving = True
         self.alive = True
         self.fitness = 0
+        self.prev_cord = [10, 14]
 
         self.radars = []
         self.distance = []
@@ -78,9 +75,6 @@ class Pacman:
     def move(self, direction):
         # need to map the pacman's location to the cell on a map
         # we can use a for loop to detect if the pacman collides with a block that has a value 1
-        x = round((self.rect.centerx - 15) / 30)
-        y = round((self.rect.centery - 15) / 30)
-        prev_cord = (x, y)
         self.direction = direction
         if self.moving:
             if direction == 'right':
@@ -91,15 +85,17 @@ class Pacman:
                 self.rect.y -= self.velocity_y
             elif direction == 'down':
                 self.rect.y += self.velocity_y
-            x = round((self.rect.centerx - 15) / 30)
-            y = round((self.rect.centery - 15) / 30)
-            current = (x,y)
-
             if count_down():
-                if prev_cord == current:
+                x = round((self.rect.centerx - 15) / 30)
+                y = round((self.rect.centery - 15) / 30)
+                current = (x, y)
+                if self.prev_cord == current:
                     self.alive = False
-                    self.fitness -= 5
-            self.fitness += 1
+                    self.fitness -= 10
+                self.fitness += 5
+                x = round((self.rect.centerx - 15) / 30)
+                y = round((self.rect.centery - 15) / 30)
+                self.prev_cord = (x, y)
 
     def eat_cherry(self, cherry_rects):
         """
@@ -110,7 +106,7 @@ class Pacman:
         for cherry_rect in cherry_rects:
             if pygame.rect.Rect.colliderect(self.rect, cherry_rect):
                 self.mode = 'eat ghost'
-                self.score += 500
+                self.fitness += 20
                 cherry_rects.remove(cherry_rect)
         return cherry_rects
 
@@ -202,20 +198,16 @@ class Pacman:
         xy_ahead_b = []
         if self.direction == "right":
             xy_ahead_a = (self.rect.topright[0] + ahead, self.rect.topright[1])
-            xy_ahead_b = (
-                self.rect.bottomright[0] + ahead, self.rect.bottomright[1])
+            xy_ahead_b = (self.rect.bottomright[0] + ahead, self.rect.bottomright[1])
         if self.direction == "left":
             xy_ahead_a = (self.rect.topleft[0] - ahead, self.rect.topleft[1])
-            xy_ahead_b = (
-                self.rect.bottomleft[0] - ahead, self.rect.bottomleft[1])
+            xy_ahead_b = (self.rect.bottomleft[0] - ahead, self.rect.bottomleft[1])
         if self.direction == "up":
             xy_ahead_a = (self.rect.topright[0], self.rect.topright[1] - ahead)
             xy_ahead_b = (self.rect.topleft[0], self.rect.topleft[1] - ahead)
         if self.direction == "down":
-            xy_ahead_a = (
-                self.rect.bottomright[0], self.rect.bottomright[1] + ahead)
-            xy_ahead_b = (
-                self.rect.bottomleft[0], self.rect.bottomleft[1] + ahead)
+            xy_ahead_a = (self.rect.bottomright[0], self.rect.bottomright[1] + ahead)
+            xy_ahead_b = (self.rect.bottomleft[0], self.rect.bottomleft[1] + ahead)
         return xy_ahead_a, xy_ahead_b
 
     def movement_restrictions(self):
@@ -224,10 +216,7 @@ class Pacman:
         color_ahead_b = self.game_window.get_at(xy_ahead_b)
         # if both color are channel, then moving is true, else its false
         if color_ahead_a == WALL_COLOR or color_ahead_b == WALL_COLOR:
-            self.fitness -= 3
-            self.moving = False
             self.alive = False
-        return color_ahead_b, color_ahead_b
 
     def eat_coin(self):
         # if collides, return true and remove the coin
@@ -238,7 +227,7 @@ class Pacman:
                     if pygame.Rect.colliderect(self.rect, this_coin):
                         self.coins[y][x] = 0
                         self.total_coins -= 1
-                        self.fitness += 10
+                        self.fitness += 20
 
     def win(self):
         if self.total_coins == 14:
@@ -252,19 +241,18 @@ class Pacman:
         for ghost in ghosts:
             if pygame.rect.Rect.colliderect(self.rect, ghost.rect):
                 if self.mode == 'eat ghost':
-                    self.score += 2000
                     ghosts.remove(ghost)
                     return ghosts, ghost
                 else:
                     self.alive = False
-                    self.fitness -= 1
+                    self.fitness -= 5
                     return ghosts, None
         return ghosts, None
 
     def draw_radar(self):
         for r in self.radars:
             pos, dest = r
-            pygame.draw.line(self.game_window, (0, 255, 0), (self.rect.centerx, self.rect.centery), pos, 1)
+            pygame.draw.line(self.game_window, (255, 255, 255), (self.rect.centerx, self.rect.centery), pos, 1)
 
     def draw(self, COIN_IMAGE):
         self.game_window.blit(self.image[self.current_image], self.rect)
@@ -287,18 +275,6 @@ class Pacman:
         Grid.cleanup(grid)
         return len(path)
 
-    def find_next_coin(self):
-        length = 0
-        x = self.rect.centerx
-        y = self.rect.centery
-        for coin in self.coins:
-            x1 = coin.centerx + 5
-            x2 = coin.centerx - 5
-            y1 = coin.centery + 5
-            y2 = coin.centery - 5
-            # if x + length == x2 and y2 < self.rect.centery < y1:
-
-        pass
-
     def get_fitness(self):
+        self.fitness += 0.01
         return self.fitness

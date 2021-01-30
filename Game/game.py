@@ -7,6 +7,7 @@ from Players.blinky import Blinky
 from Players.clyde import Clyde
 import utility
 import neat
+import pickle
 
 """
 write a pacman game so it is both playable by a human and can train A.I.
@@ -148,23 +149,26 @@ class Game:
                 pacman.distance_to_ghost(self.ghosts, self.grid)
                 output = nets[x].activate((pacman.get_data()))
                 if pacman.moving:
-                    if output[0] > 0.5:
-                        ge[x].fitness = pacman.move('right', ge[x].fitness)
-                    elif output[1] > 0.5:
-                        ge[x].fitness = pacman.move('left', ge[x].fitness)
-                    elif output[2] > 0.5:
-                        ge[x].fitness = pacman.move('up', ge[x].fitness)
-                    elif output[3] > 0.5:
-                        ge[x].fitness = pacman.move('down', ge[x].fitness)
+                    if output[0] > 0:
+                        ge[x].fitness = pacman.move('right')
+                    elif output[1] > 0:
+                        ge[x].fitness = pacman.move('left')
+                    elif output[2] > 0:
+                        ge[x].fitness = pacman.move('up')
+                    elif output[3] > 0:
+                        ge[x].fitness = pacman.move('down')
                     else:
                         pacman.alive = False
-                if pacman.eat_coin():
-                    ge[x].fitness += 5
                 self.cherry_rects = pacman.eat_cherry(self.cherry_rects)
                 self.ghosts, ghost_dead = pacman.is_alive(self.ghosts)
+                pacman.eat_coin()
+                ge[x].fitness = pacman.get_fitness()
                 if ghost_dead is not None:
                     ghost_dead.append(ghost_dead)
                 pacman.draw(self.COIN_IMAGE)
+                if pacman.fitness > 5000:
+                    pickle.dump(nets[x], open("best.pickle", "wb"))
+                    break
             for x, pacman in enumerate(pacmans):
                 pacman.movement_restrictions()
                 if not pacman.alive:

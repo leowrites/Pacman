@@ -6,16 +6,24 @@ import numpy as np
 UNIT_SIZE = 30
 WALL_COLOR = pygame.Color(0, 0, 128)
 TILE_SIZE = (30, 30)
+COUNTDOWN = 10
+
+
+def count_down():
+    global COUNTDOWN
+    COUNTDOWN -= 1
+    if COUNTDOWN == 0:
+        COUNTDOWN = 60
+        return True
+    else:
+        return False
 
 
 class Pacman:
-    # static variables for all pacman
     cur_location_on_grid = [10, 14]
-    # this is for showing the pacman
     velocity_x = 1
     velocity_y = 1
     direction = "up"
-    is_super = False
 
     def __init__(self, game_map, game_window, image):
         self.RIGHT = True
@@ -25,6 +33,7 @@ class Pacman:
 
         self.moving = True
         self.alive = True
+        self.fitness = 0
 
         self.radars = []
         self.distance = []
@@ -35,12 +44,12 @@ class Pacman:
         self.image = image
         self.current_image = 1
         self.mode = 'normal'
+        self.prev_cord = []
         self.coins = np.zeros((20, 20), dtype=pygame.Rect)
         self.total_coins = 0
         self.rect = self.image[1].get_rect(
             center=(self.cur_location_on_grid[0] * UNIT_SIZE + 15, self.cur_location_on_grid[1] * UNIT_SIZE + 15))
 
-        # this is used to locate the pacman on the grid
         self.game_window = game_window
 
     def spawn_coins(self, COIN_IMAGE):
@@ -66,9 +75,12 @@ class Pacman:
                 if current != 0:
                     self.game_window.blit(COIN_IMAGE, rect)
 
-    def move(self, direction, fitness):
+    def move(self, direction):
         # need to map the pacman's location to the cell on a map
         # we can use a for loop to detect if the pacman collides with a block that has a value 1
+        x = round((self.rect.centerx - 15) / 30)
+        y = round((self.rect.centery - 15) / 30)
+        prev_cord = (x, y)
         self.direction = direction
         if self.moving:
             if direction == 'right':
@@ -79,9 +91,15 @@ class Pacman:
                 self.rect.y -= self.velocity_y
             elif direction == 'down':
                 self.rect.y += self.velocity_y
-            fitness += 0.05
-            return fitness
-        return fitness
+            x = round((self.rect.centerx - 15) / 30)
+            y = round((self.rect.centery - 15) / 30)
+            current = (x,y)
+
+            if count_down():
+                if prev_cord == current:
+                    self.alive = False
+                    self.fitness -= 5
+            self.fitness += 1
 
     def eat_cherry(self, cherry_rects):
         """
@@ -99,41 +117,84 @@ class Pacman:
     def radar(self, direction, pixel):
 
         length = 0
-        x = int(self.rect.centerx)
-        y = int(self.rect.centery)
 
         if direction == 'right':
+            # search for both top and bottom
+            x = int(self.rect.topright[0])
+            y = int(self.rect.topright[1])
             while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
                 length += 1
-                x = int(self.rect.centerx + length)
-            distance = abs(x - self.rect.centerx)
+                x = int(self.rect.topright[0] + length)
+            distance = abs(x - self.rect.topright[0])
             self.radars.append([(x, y), distance])
-        if direction == 'left':
+
+            x = int(self.rect.bottomright[0])
+            y = int(self.rect.bottomright[1])
             while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
                 length += 1
-                x = int(self.rect.centerx - length)
-            distance = abs(self.rect.centerx - x)
+                x = int(self.rect.bottomright[0] + length)
+            distance = abs(x - self.rect.bottomright[0])
+            self.radars.append([(x, y), distance])
+
+        if direction == 'left':
+            x = int(self.rect.topleft[0])
+            y = int(self.rect.topleft[1])
+            while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
+                length += 1
+                x = int(self.rect.topleft[0] - length)
+            distance = abs(self.rect.topleft[0] - x)
+            self.radars.append([(x, y), distance])
+
+            x = int(self.rect.bottomleft[0])
+            y = int(self.rect.bottomleft[1])
+            while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
+                length += 1
+                x = int(self.rect.bottomleft[0] - length)
+            distance = abs(self.rect.bottomleft[0] - x)
             self.radars.append([(x, y), distance])
         if direction == 'up':
+
+            x = int(self.rect.topright[0])
+            y = int(self.rect.topright[1])
             while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
                 length += 1
-                y = int(self.rect.centery - length)
-            distance = abs(self.rect.centery - y)
+                y = int(self.rect.topright[1] - length)
+            distance = abs(self.rect.topright[1] - y)
             self.radars.append([(x, y), distance])
-        if direction == 'down':
+
+            x = int(self.rect.topleft[0])
+            y = int(self.rect.topleft[1])
             while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
                 length += 1
-                y = int(self.rect.centery + length)
-            distance = abs(y - self.rect.centery)
+                y = int(self.rect.topleft[1] - length)
+            distance = abs(self.rect.topleft[1] - y)
+            self.radars.append([(x, y), distance])
+
+        if direction == 'down':
+
+            x = int(self.rect.bottomright[0])
+            y = int(self.rect.bottomright[1])
+            while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
+                length += 1
+                y = int(self.rect.bottomright[1] + length)
+            distance = abs(y - self.rect.bottomright[1])
+            self.radars.append([(x, y), distance])
+
+            x = int(self.rect.bottomleft[0])
+            y = int(self.rect.bottomleft[1])
+            while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
+                length += 1
+                y = int(self.rect.bottomleft[1] + length)
+            distance = abs(y - self.rect.bottomleft[1])
             self.radars.append([(x, y), distance])
 
     def get_data(self):
         radars = self.radars
-        ret = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+        ret = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         for i, r in enumerate(radars):
             ret[i] = int(r[1])
         for x in range(4):
-            ret[4+x] = self.distance[x]
+            ret[8+x] = self.distance[x]
         return ret
 
     def get_pixel_ahead(self, ahead=1):
@@ -163,6 +224,7 @@ class Pacman:
         color_ahead_b = self.game_window.get_at(xy_ahead_b)
         # if both color are channel, then moving is true, else its false
         if color_ahead_a == WALL_COLOR or color_ahead_b == WALL_COLOR:
+            self.fitness -= 3
             self.moving = False
             self.alive = False
         return color_ahead_b, color_ahead_b
@@ -176,9 +238,7 @@ class Pacman:
                     if pygame.Rect.colliderect(self.rect, this_coin):
                         self.coins[y][x] = 0
                         self.total_coins -= 1
-                        self.score += 100
-                        return True
-        return False
+                        self.fitness += 10
 
     def win(self):
         if self.total_coins == 14:
@@ -197,6 +257,7 @@ class Pacman:
                     return ghosts, ghost
                 else:
                     self.alive = False
+                    self.fitness -= 1
                     return ghosts, None
         return ghosts, None
 
@@ -225,3 +286,19 @@ class Pacman:
         path, runs = finder.find_path(start, end, grid)
         Grid.cleanup(grid)
         return len(path)
+
+    def find_next_coin(self):
+        length = 0
+        x = self.rect.centerx
+        y = self.rect.centery
+        for coin in self.coins:
+            x1 = coin.centerx + 5
+            x2 = coin.centerx - 5
+            y1 = coin.centery + 5
+            y2 = coin.centery - 5
+            # if x + length == x2 and y2 < self.rect.centery < y1:
+
+        pass
+
+    def get_fitness(self):
+        return self.fitness

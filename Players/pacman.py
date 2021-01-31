@@ -111,6 +111,12 @@ class Pacman:
         return cherry_rects
 
     def radar(self, direction, pixel):
+        """
+        forgot to reset the length... F
+        :param direction: direction the pacman is travelling
+        :param pixel: pixel to check
+        :return: nothing
+        """
 
         length = 0
 
@@ -124,6 +130,7 @@ class Pacman:
             distance = abs(x - self.rect.topright[0])
             self.radars.append([(x, y), distance])
 
+            length = 0
             x = int(self.rect.bottomright[0])
             y = int(self.rect.bottomright[1])
             while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
@@ -141,6 +148,7 @@ class Pacman:
             distance = abs(self.rect.topleft[0] - x)
             self.radars.append([(x, y), distance])
 
+            length = 0
             x = int(self.rect.bottomleft[0])
             y = int(self.rect.bottomleft[1])
             while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
@@ -158,6 +166,7 @@ class Pacman:
             distance = abs(self.rect.topright[1] - y)
             self.radars.append([(x, y), distance])
 
+            length = 0
             x = int(self.rect.topleft[0])
             y = int(self.rect.topleft[1])
             while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
@@ -176,6 +185,7 @@ class Pacman:
             distance = abs(y - self.rect.bottomright[1])
             self.radars.append([(x, y), distance])
 
+            length = 0
             x = int(self.rect.bottomleft[0])
             y = int(self.rect.bottomleft[1])
             while not pixel.get_at((x, y)) == (0, 0, 128) and length < 150:
@@ -190,7 +200,7 @@ class Pacman:
         for i, r in enumerate(radars):
             ret[i] = int(r[1])
         for x in range(4):
-            ret[8+x] = self.distance[x]
+            ret[8 + x] = self.distance[x]
         return ret
 
     def get_pixel_ahead(self, ahead=1):
@@ -235,7 +245,7 @@ class Pacman:
 
     def is_alive(self, ghosts):
         """
-        :param ghost_rect: a list of ghost rectangles to be looped through to check if collides with pacman
+        :param ghosts: a list of ghost rectangles to be looped through to check if collides with pacman
         :return: nothing
         """
         for ghost in ghosts:
@@ -278,3 +288,25 @@ class Pacman:
     def get_fitness(self):
         self.fitness += 0.01
         return self.fitness
+
+    def pacman_image_selector(self):
+        if self.direction == "right":
+            if self.current_image == 1:
+                self.current_image = 2
+            else:
+                self.current_image = 1
+        if self.direction == "left":
+            if self.current_image == 3:
+                self.current_image = 4
+            else:
+                self.current_image = 3
+        if self.direction == "down":
+            if self.current_image == 5:
+                self.current_image = 6
+            else:
+                self.current_image = 5
+        if self.direction == "up":
+            if self.current_image == 7:
+                self.current_image = 8
+            else:
+                self.current_image = 7

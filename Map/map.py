@@ -18,7 +18,7 @@ class Map:
     cherry_cord3 = [15, 2]
     cherry_cord4 = [16, 16]
     cherry_location = [cherry_cord1, cherry_cord2, cherry_cord3, cherry_cord4]
-    game_map = np.array(
+    map_array = np.array(
         [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
          [0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
          [0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0],
@@ -65,9 +65,9 @@ class Map:
             self.window.blit(CHERRY_IMAGE, cherry_cord)
 
     def draw_map(self):
-        for y, rows in enumerate(self.game_map):
+        for y, rows in enumerate(self.map_array):
             for x in range(len(rows)):
-                current = self.game_map[y][x]
+                current = self.map_array[y][x]
                 current_rect = (x * TILE_SIZE[0] + 15, y * TILE_SIZE[1] + 15)
                 surface = pygame.Surface(TILE_SIZE)
                 rect = surface.get_rect(center=current_rect)

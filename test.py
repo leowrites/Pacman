@@ -1,3 +1,4 @@
+import math
 
 def check_radar(self, degree, map):
     len = 0
